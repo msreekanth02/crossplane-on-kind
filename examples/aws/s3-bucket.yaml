@@ -1,0 +1,52 @@
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: Bucket
+metadata:
+  name: my-crossplane-bucket
+  annotations:
+    crossplane.io/external-name: my-crossplane-bucket-${USER}-${RANDOM_SUFFIX}
+spec:
+  forProvider:
+    region: us-east-1
+    # Bucket configuration
+    tags:
+      Environment: dev
+      ManagedBy: crossplane
+      Purpose: demo
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketPublicAccessBlock
+metadata:
+  name: my-crossplane-bucket-pab
+spec:
+  forProvider:
+    region: us-east-1
+    bucketRef:
+      name: my-crossplane-bucket
+    blockPublicAcls: true
+    blockPublicPolicy: true
+    ignorePublicAcls: true
+    restrictPublicBuckets: true
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketVersioning
+metadata:
+  name: my-crossplane-bucket-versioning
+spec:
+  forProvider:
+    region: us-east-1
+    bucketRef:
+      name: my-crossplane-bucket
+    versioningConfiguration:
+      - status: Enabled
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete

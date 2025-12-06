@@ -1,0 +1,186 @@
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: VPC
+metadata:
+  name: crossplane-vpc
+spec:
+  forProvider:
+    region: us-east-1
+    cidrBlock: 10.0.0.0/16
+    enableDnsHostnames: true
+    enableDnsSupport: true
+    tags:
+      Name: crossplane-vpc
+      Environment: dev
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: InternetGateway
+metadata:
+  name: crossplane-igw
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: crossplane-vpc
+    tags:
+      Name: crossplane-igw
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: crossplane-subnet-public-1
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1a
+    vpcIdRef:
+      name: crossplane-vpc
+    cidrBlock: 10.0.1.0/24
+    mapPublicIpOnLaunch: true
+    tags:
+      Name: crossplane-subnet-public-1
+      Type: public
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: crossplane-subnet-public-2
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1b
+    vpcIdRef:
+      name: crossplane-vpc
+    cidrBlock: 10.0.2.0/24
+    mapPublicIpOnLaunch: true
+    tags:
+      Name: crossplane-subnet-public-2
+      Type: public
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: crossplane-subnet-private-1
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1a
+    vpcIdRef:
+      name: crossplane-vpc
+    cidrBlock: 10.0.10.0/24
+    mapPublicIpOnLaunch: false
+    tags:
+      Name: crossplane-subnet-private-1
+      Type: private
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: crossplane-subnet-private-2
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1b
+    vpcIdRef:
+      name: crossplane-vpc
+    cidrBlock: 10.0.11.0/24
+    mapPublicIpOnLaunch: false
+    tags:
+      Name: crossplane-subnet-private-2
+      Type: private
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTable
+metadata:
+  name: crossplane-rt-public
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: crossplane-vpc
+    tags:
+      Name: crossplane-rt-public
+      Type: public
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Route
+metadata:
+  name: crossplane-route-public-igw
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: crossplane-rt-public
+    destinationCidrBlock: 0.0.0.0/0
+    gatewayIdRef:
+      name: crossplane-igw
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTableAssociation
+metadata:
+  name: crossplane-rta-public-1
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: crossplane-rt-public
+    subnetIdRef:
+      name: crossplane-subnet-public-1
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTableAssociation
+metadata:
+  name: crossplane-rta-public-2
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: crossplane-rt-public
+    subnetIdRef:
+      name: crossplane-subnet-public-2
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete

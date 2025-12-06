@@ -1,0 +1,144 @@
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroup
+metadata:
+  name: crossplane-db-sg
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: crossplane-vpc
+    description: Security group for RDS database
+    tags:
+      Name: crossplane-db-sg
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-db-sg-postgres
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 5432
+    toPort: 5432
+    protocol: tcp
+    sourceSecurityGroupIdRef:
+      name: crossplane-web-sg
+    securityGroupIdRef:
+      name: crossplane-db-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-db-sg-egress
+spec:
+  forProvider:
+    region: us-east-1
+    type: egress
+    fromPort: 0
+    toPort: 0
+    protocol: "-1"
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: crossplane-db-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: rds.aws.upbound.io/v1beta1
+kind: SubnetGroup
+metadata:
+  name: crossplane-db-subnet-group
+spec:
+  forProvider:
+    region: us-east-1
+    description: Subnet group for RDS database
+    subnetIdRefs:
+      - name: crossplane-subnet-private-1
+      - name: crossplane-subnet-private-2
+    tags:
+      Name: crossplane-db-subnet-group
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: rds.aws.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: crossplane-postgres-db
+spec:
+  forProvider:
+    region: us-east-1
+    # Database configuration
+    engine: postgres
+    engineVersion: "15.4"
+    instanceClass: db.t3.micro
+    allocatedStorage: 20
+    storageType: gp3
+    storageEncrypted: true
+    
+    # Database credentials (use Secrets in production!)
+    dbName: myappdb
+    username: dbadmin
+    # WARNING: Use a strong password and store in Kubernetes Secret in production
+    passwordSecretRef:
+      name: db-password
+      namespace: crossplane-system
+      key: password
+    
+    # Network configuration
+    dbSubnetGroupNameRef:
+      name: crossplane-db-subnet-group
+    vpcSecurityGroupIdRefs:
+      - name: crossplane-db-sg
+    publiclyAccessible: false
+    
+    # Backup configuration
+    backupRetentionPeriod: 7
+    backupWindow: "03:00-04:00"
+    maintenanceWindow: "mon:04:00-mon:05:00"
+    
+    # Deletion protection
+    deletionProtection: false  # Set to true in production
+    skipFinalSnapshot: true     # Set to false in production
+    
+    # Performance and monitoring
+    performanceInsightsEnabled: true
+    performanceInsightsRetentionPeriod: 7
+    enabledCloudwatchLogsExports:
+      - postgresql
+      - upgrade
+    
+    tags:
+      Name: crossplane-postgres-db
+      Environment: dev
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+# Secret for database password
+# In production, create this separately and use a strong password
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-password
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  password: "ChangeThisPassword123!"  # CHANGE THIS!

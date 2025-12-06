@@ -1,0 +1,15 @@
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: example-namespace
+spec:
+  forProvider:
+    manifest:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: crossplane-example
+        labels:
+          managed-by: crossplane
+  providerConfigRef:
+    name: kubernetes-provider

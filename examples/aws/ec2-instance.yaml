@@ -1,0 +1,123 @@
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroup
+metadata:
+  name: crossplane-web-sg
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: crossplane-vpc
+    description: Security group for web servers
+    tags:
+      Name: crossplane-web-sg
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-web-sg-http
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 80
+    toPort: 80
+    protocol: tcp
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: crossplane-web-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-web-sg-https
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 443
+    toPort: 443
+    protocol: tcp
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: crossplane-web-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-web-sg-ssh
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 22
+    toPort: 22
+    protocol: tcp
+    cidrBlocks:
+      - 0.0.0.0/0  # WARNING: Restrict this to your IP in production
+    securityGroupIdRef:
+      name: crossplane-web-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: crossplane-web-sg-egress
+spec:
+  forProvider:
+    region: us-east-1
+    type: egress
+    fromPort: 0
+    toPort: 0
+    protocol: "-1"
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: crossplane-web-sg
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: crossplane-web-server
+spec:
+  forProvider:
+    region: us-east-1
+    # Amazon Linux 2 AMI (update for your region)
+    ami: ami-0c55b159cbfafe1f0
+    instanceType: t2.micro
+    subnetIdRef:
+      name: crossplane-subnet-public-1
+    vpcSecurityGroupIdRefs:
+      - name: crossplane-web-sg
+    associatePublicIpAddress: true
+    tags:
+      Name: crossplane-web-server
+      Environment: dev
+      ManagedBy: crossplane
+    # User data to install nginx
+    userDataBase64: IyEvYmluL2Jhc2gKeXVtIHVwZGF0ZSAteQp5dW0gaW5zdGFsbCAteSBuZ2lueApzeXN0ZW1jdGwgc3RhcnQgbmdpbngKc3lzdGVtY3RsIGVuYWJsZSBuZ2lueAplY2hvICI8aDE+SGVsbG8gZnJvbSBDcm9zc3BsYW5lISE8L2gxPiIgPiAvdXNyL3NoYXJlL25naW54L2h0bWwvaW5kZXguaHRtbA==
+  providerConfigRef:
+    name: aws-provider
+  deletionPolicy: Delete

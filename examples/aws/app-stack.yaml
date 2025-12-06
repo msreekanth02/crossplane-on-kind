@@ -1,0 +1,501 @@
+---
+# Complete Application Stack
+# This creates a full application infrastructure with:
+# - VPC with public and private subnets
+# - Internet Gateway and routing
+# - Security groups for web and database
+# - EC2 instance for web server
+# - RDS PostgreSQL database
+# - S3 bucket for application data
+
+# VPC
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: VPC
+metadata:
+  name: app-vpc
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    cidrBlock: 10.0.0.0/16
+    enableDnsHostnames: true
+    enableDnsSupport: true
+    tags:
+      Name: app-vpc
+      App: myapp
+      Environment: production
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# Internet Gateway
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: InternetGateway
+metadata:
+  name: app-igw
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: app-vpc
+    tags:
+      Name: app-igw
+      App: myapp
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# Public Subnets
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: app-subnet-public-1
+  labels:
+    app: myapp
+    tier: public
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1a
+    vpcIdRef:
+      name: app-vpc
+    cidrBlock: 10.0.1.0/24
+    mapPublicIpOnLaunch: true
+    tags:
+      Name: app-subnet-public-1
+      App: myapp
+      Tier: public
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: app-subnet-public-2
+  labels:
+    app: myapp
+    tier: public
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1b
+    vpcIdRef:
+      name: app-vpc
+    cidrBlock: 10.0.2.0/24
+    mapPublicIpOnLaunch: true
+    tags:
+      Name: app-subnet-public-2
+      App: myapp
+      Tier: public
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# Private Subnets
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: app-subnet-private-1
+  labels:
+    app: myapp
+    tier: private
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1a
+    vpcIdRef:
+      name: app-vpc
+    cidrBlock: 10.0.10.0/24
+    tags:
+      Name: app-subnet-private-1
+      App: myapp
+      Tier: private
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Subnet
+metadata:
+  name: app-subnet-private-2
+  labels:
+    app: myapp
+    tier: private
+spec:
+  forProvider:
+    region: us-east-1
+    availabilityZone: us-east-1b
+    vpcIdRef:
+      name: app-vpc
+    cidrBlock: 10.0.11.0/24
+    tags:
+      Name: app-subnet-private-2
+      App: myapp
+      Tier: private
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# Route Table and Routes
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTable
+metadata:
+  name: app-rt-public
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: app-vpc
+    tags:
+      Name: app-rt-public
+      App: myapp
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Route
+metadata:
+  name: app-route-public-igw
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: app-rt-public
+    destinationCidrBlock: 0.0.0.0/0
+    gatewayIdRef:
+      name: app-igw
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTableAssociation
+metadata:
+  name: app-rta-public-1
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: app-rt-public
+    subnetIdRef:
+      name: app-subnet-public-1
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: RouteTableAssociation
+metadata:
+  name: app-rta-public-2
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    routeTableIdRef:
+      name: app-rt-public
+    subnetIdRef:
+      name: app-subnet-public-2
+  providerConfigRef:
+    name: aws-provider
+
+# Web Server Security Group
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroup
+metadata:
+  name: app-web-sg
+  labels:
+    app: myapp
+    tier: web
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: app-vpc
+    description: Security group for application web servers
+    tags:
+      Name: app-web-sg
+      App: myapp
+      Tier: web
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: app-web-sg-http
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 80
+    toPort: 80
+    protocol: tcp
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: app-web-sg
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: app-web-sg-https
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 443
+    toPort: 443
+    protocol: tcp
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: app-web-sg
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: app-web-sg-egress
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    type: egress
+    fromPort: 0
+    toPort: 0
+    protocol: "-1"
+    cidrBlocks:
+      - 0.0.0.0/0
+    securityGroupIdRef:
+      name: app-web-sg
+  providerConfigRef:
+    name: aws-provider
+
+# Database Security Group
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroup
+metadata:
+  name: app-db-sg
+  labels:
+    app: myapp
+    tier: database
+spec:
+  forProvider:
+    region: us-east-1
+    vpcIdRef:
+      name: app-vpc
+    description: Security group for application database
+    tags:
+      Name: app-db-sg
+      App: myapp
+      Tier: database
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: SecurityGroupRule
+metadata:
+  name: app-db-sg-postgres
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    type: ingress
+    fromPort: 5432
+    toPort: 5432
+    protocol: tcp
+    sourceSecurityGroupIdRef:
+      name: app-web-sg
+    securityGroupIdRef:
+      name: app-db-sg
+  providerConfigRef:
+    name: aws-provider
+
+# Database Subnet Group
+---
+apiVersion: rds.aws.upbound.io/v1beta1
+kind: SubnetGroup
+metadata:
+  name: app-db-subnet-group
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    description: Subnet group for application database
+    subnetIdRefs:
+      - name: app-subnet-private-1
+      - name: app-subnet-private-2
+    tags:
+      Name: app-db-subnet-group
+      App: myapp
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# RDS Database Instance
+---
+apiVersion: rds.aws.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: app-database
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    engine: postgres
+    engineVersion: "15.4"
+    instanceClass: db.t3.micro
+    allocatedStorage: 20
+    storageType: gp3
+    storageEncrypted: true
+    dbName: myappdb
+    username: appadmin
+    passwordSecretRef:
+      name: app-db-password
+      namespace: crossplane-system
+      key: password
+    dbSubnetGroupNameRef:
+      name: app-db-subnet-group
+    vpcSecurityGroupIdRefs:
+      - name: app-db-sg
+    publiclyAccessible: false
+    backupRetentionPeriod: 7
+    deletionProtection: false
+    skipFinalSnapshot: true
+    tags:
+      Name: app-database
+      App: myapp
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# EC2 Instance for Web Server
+---
+apiVersion: ec2.aws.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: app-web-server
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    ami: ami-0c55b159cbfafe1f0  # Amazon Linux 2 - update for your region
+    instanceType: t2.micro
+    subnetIdRef:
+      name: app-subnet-public-1
+    vpcSecurityGroupIdRefs:
+      - name: app-web-sg
+    associatePublicIpAddress: true
+    tags:
+      Name: app-web-server
+      App: myapp
+      Environment: production
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+# S3 Bucket for Application Data
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: Bucket
+metadata:
+  name: app-data-bucket
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    tags:
+      Name: app-data-bucket
+      App: myapp
+      Environment: production
+      ManagedBy: crossplane
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketPublicAccessBlock
+metadata:
+  name: app-data-bucket-pab
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    bucketRef:
+      name: app-data-bucket
+    blockPublicAcls: true
+    blockPublicPolicy: true
+    ignorePublicAcls: true
+    restrictPublicBuckets: true
+  providerConfigRef:
+    name: aws-provider
+
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketVersioning
+metadata:
+  name: app-data-bucket-versioning
+  labels:
+    app: myapp
+spec:
+  forProvider:
+    region: us-east-1
+    bucketRef:
+      name: app-data-bucket
+    versioningConfiguration:
+      - status: Enabled
+  providerConfigRef:
+    name: aws-provider
+
+# Database Password Secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-db-password
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  password: "ChangeThisSecurePassword123!"  # CHANGE THIS IN PRODUCTION!
